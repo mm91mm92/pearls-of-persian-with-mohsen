@@ -1,0 +1,87 @@
+
+
+CLASS TocItem :=
+    title AS String;
+    url AS String;
+    children AS List<TocItem>;
+ENDCLASS
+
+
+CLASS Poet INHERITS TocItem :=
+ENDCLASS
+
+
+CLASS LiteraryWork INHERITS TocItem :=
+ENDCLASS
+
+
+CLASS StructuralDivision INHERITS TocItem :=
+ENDCLASS
+
+
+CLASS LiteraryUnit INHERITS TocItem :=
+
+	METHOD GetNextDoc() -> TocItem OR NULL :=
+		// 
+		thisIdx AS Integer;
+		children, divs AS List<TocItem>;
+		sibling, child, doc AS TocItem;
+		//
+		children <- DO {{get the children field of the paraent of @this}};
+		thisIdx <- DO {{get index of @this in @children}};
+		FOR EACH sibling IN children[(thisIdx + 1) .. ] DO
+			IF sibling IS {{literary document}} THEN
+				RETURN sibling;
+			ELSE IF sibling IS {{structural division}} THEN
+				doc <- child.GetFirstDoc();
+				IF doc IS NOT NULL THEN
+					RETURN doc;
+				ENDIF
+			ENDIF
+		ENDFOR
+		RETURN NULL;
+	ENDMETHOD
+
+	METHOD GetFirstDoc() -> TocItem OR NULL :=
+		// The first narrative unit is only defined for `work` and
+		// `structural_division` 
+		IF NIETHER TYPE OF this IS {{work}} NOR TYPE OF this IS 
+				{{structural_division}} THEN
+			THROW {{unsupported types for the first narrative unit: only `work` 
+				and `structural_division` are supported.}};
+		ENDIF
+		RETURN GetFirstDoc_Recur(this);
+	ENDMETHOD
+
+	// Recursively gets the first literary document (heading) appears in a book
+	// when treat the `toc` as the table of content of the book. When
+	// `last_to_first` set to `TRUE`, this function founds the last literary
+	// document (heading).
+	FUNCTION GetFirstDoc_Recur(
+			toc AS TocItem,
+			last_to_first AS Boolean <- FALSE,
+			) -> TocItem OR NULL :=
+		child, doc AS TocItem;
+		children AS List<TocItem>;
+		// 
+		children <- toc.children;
+		IF last_to_first THEN
+			children <- DO {{reverse @children}};
+		ENDIF
+		FOR EACH child IN children DO
+			IF TYPE OF child IS {{literary document}} THEN
+				RETURN child;
+			ELSE IF TYPE OF child IS {{structural_division}} THEN
+				doc <- GetFirstDoc_Recur(child);
+				IF doc IS NOT NULL THEN
+					RETURN doc;
+				ENDIF
+			ENDIF
+		ENDFOR
+		// No literary document was found
+		RETURN NULL;
+	ENDFUNCTION
+ENDCLASS
+
+
+
